@@ -39,6 +39,7 @@ module mem_stage(
     //to cache
     output            data_uncache_en,
     output            tlb_excp_cancel_req,
+    output            sc_cancel_req  ,
     //from csr 
     input             csr_pg         ,
     input             csr_da         ,
@@ -47,6 +48,7 @@ module mem_stage(
     input  [ 1:0]     csr_plv        ,
     input  [ 1:0]     csr_datm       ,
     input             disable_cache  ,
+    input  [27:0]     lladdr         ,
     // from addr trans for difftest
     input  [ 7:0]     data_index_diff   ,
     input  [19:0]     data_tag_diff     ,
@@ -62,7 +64,8 @@ module mem_stage(
     input             data_tlb_v     ,
     input             data_tlb_d     ,
     input  [ 1:0]     data_tlb_mat   ,
-    input  [ 1:0]     data_tlb_plv   
+    input  [ 1:0]     data_tlb_plv   ,
+    input  [19:0]     data_tlb_ppn   
 );
 
 reg         ms_valid;
@@ -179,6 +182,8 @@ wire [ 1:0] cacop_op_mode;
 wire        forward_enable;
 wire        dest_zero;
 
+wire [31:0] paddr;
+
 wire [15:0] excp_num;
 wire        excp;
 
@@ -191,16 +196,20 @@ wire        excp_ppi ;
 wire        da_mode  ;
 wire        pg_mode  ;
 
-assign ms_to_ws_bus = {ms_csr_data    ,  //459:428 for difftest
-                       ms_csr_rstat_en,  //427:427 for difftest
-                       ms_st_data     ,  //426:395 for difftest
-                       ms_inst_st_en  ,  //394:387 for difftest
-                       ms_ld_vaddr    ,  //386:355 for difftest
-                       ms_ld_paddr    ,  //354:323 for difftest
-                       ms_inst_ld_en  ,  //322:315 for difftest
-                       ms_cnt_inst    ,  //314:314 for difftest
-                       ms_timer_64    ,  //313:250 for difftest
-                       ms_inst        ,  //249:218 for difftest
+wire        sc_addr_eq;
+
+assign ms_to_ws_bus = {ms_csr_data    ,  //492:461 for difftest
+                       ms_csr_rstat_en,  //460:460 for difftest
+                       ms_st_data     ,  //459:428 for difftest
+                       ms_inst_st_en  ,  //427:420 for difftest
+                       ms_ld_vaddr    ,  //419:388 for difftest
+                       ms_ld_paddr    ,  //387:356 for difftest
+                       ms_inst_ld_en  ,  //355:348 for difftest
+                       ms_cnt_inst    ,  //347:347 for difftest
+                       ms_timer_64    ,  //346:283 for difftest
+                       ms_inst        ,  //282:251 for difftest
+					   data_uncache_en,  //250:250
+					   paddr          ,  //249:218
                        ms_idle        ,  //217:217
                        ms_br_pre_error,  //216:216
                        ms_br_pre      ,  //215:215
@@ -237,7 +246,7 @@ assign ms_to_ws_bus = {ms_csr_data    ,  //459:428 for difftest
 assign ms_to_ds_valid = ms_valid;
 
 //cache inst need wait data_data_ok signal
-assign ms_ready_go    = (data_data_ok || data_buff_enable) || !access_mem || excp;
+assign ms_ready_go    = (data_data_ok || data_buff_enable) || !access_mem || excp || sc_cancel_req;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 always @(posedge clk) begin
@@ -281,7 +290,7 @@ assign ms_final_result = ({32{ms_load_op      }} & mem_result       )  |
                          ({32{ms_mul_div_op[1]}} & mul_result[63:32])  |
                          ({32{ms_mul_div_op[2]}} & div_result       )  |
                          ({32{ms_mul_div_op[3]}} & mod_result       )  |
-                         ({32{!ms_mul_div_op && !ms_load_op}} & ms_exe_result);
+                         ({32{!ms_mul_div_op && !ms_load_op}} & (ms_exe_result&{32{!sc_cancel_req}}));
 
 assign dest_zero            = (ms_dest == 5'b0);
 assign forward_enable       = ms_gr_we & ~dest_zero & ms_valid;
@@ -298,6 +307,11 @@ assign pg_mode = !csr_da && csr_pg;
 assign da_mode =  csr_da && !csr_pg;
 
 assign data_addr_trans_en = pg_mode && !dmw0_en && !dmw1_en && !cacop_op_mode_di;
+
+assign paddr = {data_tlb_ppn, ms_error_va[11:0]};
+
+assign sc_addr_eq = (lladdr == paddr[31:4]);
+assign sc_cancel_req = (!sc_addr_eq||data_uncache_en) && ms_sc_w && access_mem;
 
 //addr dmw trans
 assign dmw0_en = ((csr_dmw0[`PLV0] && csr_plv == 2'd0) || (csr_dmw0[`PLV3] && csr_plv == 2'd3)) && (ms_error_va[31:29] == csr_dmw0[`VSEG]) && pg_mode;

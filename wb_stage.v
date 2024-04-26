@@ -34,6 +34,8 @@ module wb_stage(
     //llbit
     output        ws_llbit_set                     ,
     output        ws_llbit                         ,
+    output        ws_lladdr_set                    ,
+    output [27:0] ws_lladdr                        ,
     //tlb ins
     output        tlb_inst_stall                   ,
     output        tlbsrch_en                       ,
@@ -112,6 +114,8 @@ wire        ws_dcache_miss;
 wire        ws_br_pre;
 wire        ws_br_pre_error;
 wire        ws_idle;
+wire [31:0] ws_paddr;
+wire        ws_data_uc;
 
 // difftest
 wire [31:0] ws_inst         ;
@@ -125,16 +129,18 @@ wire [31:0] ws_st_data      ;
 wire        ws_csr_rstat_en ;
 wire [31:0] ws_csr_data     ;
 
-assign {ws_csr_data    ,  //459:428 for difftest
-        ws_csr_rstat_en,  //427:427 for difftest
-        ws_st_data     ,  //426:395 for difftest
-        ws_inst_st_en  ,  //394:387 for difftest
-        ws_ld_vaddr    ,  //386:355 for difftest
-        ws_ld_paddr    ,  //354:323 for difftest
-        ws_inst_ld_en  ,  //322:315 for difftest
-        ws_cnt_inst    ,  //314:314 for difftest
-        ws_timer_64    ,  //313:250 for difftest
-        ws_inst        ,  //249:218 for difftest
+assign {ws_csr_data    ,  //492:461 for difftest
+        ws_csr_rstat_en,  //460:460 for difftest
+        ws_st_data     ,  //459:428 for difftest
+        ws_inst_st_en  ,  //427:420 for difftest
+        ws_ld_vaddr    ,  //419:388 for difftest
+        ws_ld_paddr    ,  //387:356 for difftest
+        ws_inst_ld_en  ,  //355:348 for difftest
+        ws_cnt_inst    ,  //347:347 for difftest
+        ws_timer_64    ,  //346:283 for difftest
+        ws_inst        ,  //282:251 for difftest
+		ws_data_uc     ,  //250:250
+		ws_paddr       ,  //249:218
         ws_idle        ,  //217:217
         ws_br_pre_error,  //216:216
         ws_br_pre      ,  //215:215
@@ -209,7 +215,7 @@ assign rf_waddr = ws_dest;
 assign rf_wdata = ws_final_result;
 
 assign excp_flush   = ws_excp & ws_valid;
-assign ertn_flush   = ws_ertn & ws_valid;
+assign ertn_flush   = ws_ertn & real_valid;
 assign refetch_flush = (ws_csr_we || ((ws_ll_w || ws_sc_w) && !ws_excp) || ws_refetch) && ws_valid;
 assign csr_era      = ws_pc;
 assign csr_wr_en    = ws_csr_we && real_valid;
@@ -234,8 +240,10 @@ assign {tlbsrch_en  ,
                        ws_invtlb } & {5{real_valid}};
 
 //llbit
-assign ws_llbit_set = (ws_ll_w | ws_sc_w) & ws_valid & !ws_excp; 
-assign ws_llbit     = (ws_ll_w & 1'b1) | (ws_sc_w & 1'b0);
+assign ws_llbit_set  = (ws_ll_w | ws_sc_w) & real_valid; 
+assign ws_llbit      = ((ws_ll_w&&!ws_data_uc) & 1'b1) | (ws_sc_w & 1'b0);
+assign ws_lladdr_set =  ws_ll_w && !ws_data_uc && real_valid;
+assign ws_lladdr     =  ws_paddr[31:4];
 
 /*
 excp_num[0]  int

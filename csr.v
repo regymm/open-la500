@@ -38,9 +38,13 @@ module csr
     //from ws llbit
     input                           llbit_in     ,
     input                           llbit_set_in ,
+    input  [27:0]                   lladdr_in    ,
+    input                           lladdr_set_in,
     //to es
     output                          llbit_out    ,
     output [18:0]                   vppn_out     ,
+    //to ms
+    output [27:0]                   lladdr_out   ,
     //to fs
     output [31:0]                   eentry_out   ,
     output [31:0]                   era_out      ,
@@ -199,6 +203,7 @@ reg        timer_en;
 reg [63:0] timer_64;
 
 reg        llbit;
+reg [27:0] lladdr;
 
 wire tlbrd_valid_wr_en;
 wire tlbrd_invalid_wr_en;
@@ -221,6 +226,7 @@ assign era_out      = csr_era;
 assign timer_64_out = timer_64 + {{32{csr_cntc[31]}}, csr_cntc};
 assign tid_out      = csr_tid;
 assign llbit_out    = llbit;
+assign lladdr_out   = lladdr;
 assign asid_out     = csr_asid[`TLB_ASID];
 assign vppn_out     = (csr_wr_en && wr_addr == TLBEHI) ? wr_data[`VPPN] : csr_tlbehi[`VPPN];
 assign tlbehi_out   = csr_tlbehi;
@@ -696,6 +702,15 @@ always @(posedge clk) begin
     end
     else if (llbit_set_in) begin
         llbit <= llbit_in;
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        lladdr <= 28'b0;
+    end
+    else if (lladdr_set_in) begin
+        lladdr <= lladdr_in;
     end
 end
 

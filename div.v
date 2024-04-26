@@ -49,7 +49,13 @@ assign UnsignX = {1'b0, (real_div_signed ? (x[31] ? (~x + 32'b1) : x) : x)}; //�
 assign UnsignY = {1'b0, (real_div_signed ? (y[31] ? (~y + 32'b1) : y) : y)};
 
 always @(posedge div_clk) begin  //33位除法计算
-    if (reset || ~div || complete_delay) begin
+    if (reset) begin
+        count <= 8'd32;
+        tmp_r <= 33'b0;
+        UnsignS <= 33'b0;
+        UnsignR <= 33'b0;
+    end
+    else if (~div || complete_delay) begin
         count <= 8'd32;     //计算33次
         tmp_r <= 33'b0;
     end

@@ -236,9 +236,12 @@ wire inst_tlbfill;
 wire inst_invtlb;
 
 wire inst_cacop;
+wire inst_valid_cacop;
 wire inst_preld;
 wire inst_dbar;
 wire inst_ibar;
+
+wire inst_nop;
 
 wire need_ui5;
 wire need_si12;
@@ -322,7 +325,7 @@ assign ds_to_es_bus = {inst_csr_rstat_en,  // 349:349 for difftest
                        ds_icache_miss,  //232:232
                        br_inst       ,  //231:231
                        inst_preld    ,  //230:230
-                       inst_cacop    ,  //229:229
+                       inst_valid_cacop,  //229:229
                        mem_sign_exted,  //228:228
                        inst_invtlb   ,  //227:227
                        inst_tlbrd    ,  //226:226
@@ -482,25 +485,27 @@ assign inst_tlbrd      = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0]
 assign inst_tlbwr      = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & rk_d[5'h0c] & rj_d[5'h00] & rd_d[5'h00];
 assign inst_tlbfill    = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & rk_d[5'h0d] & rj_d[5'h00] & rd_d[5'h00];
 
+assign inst_valid_cacop = inst_cacop&&(dest[2:0]==3'b0||dest[2:0]==3'b1)&&(dest[4:3]==2'd0||dest[4:3]==2'd1||dest[4:3]==2'd2);
+assign inst_nop = inst_cacop&&((dest[2:0]!=3'b0&&dest[2:0]!=3'b1)||(dest[4:3]==2'd3));
 
-assign alu_op[ 0] = inst_add_w    | 
-                    inst_addi_w   | 
-                    inst_ld_b     |
-                    inst_ld_h     |
-                    inst_ld_w     |
-                    inst_st_b     |
-                    inst_st_h     | 
-                    inst_st_w     |
-                    inst_ld_bu    |
-                    inst_ld_hu    | 
-                    inst_ll_w     |
-                    inst_sc_w     |
-                    inst_jirl     | 
-                    inst_bl       |
-                    inst_pcaddi   |
-                    inst_pcaddu12i|
-                    inst_cacop    |
-                    inst_preld    ;
+assign alu_op[ 0] = inst_add_w      | 
+                    inst_addi_w     | 
+                    inst_ld_b       |
+                    inst_ld_h       |
+                    inst_ld_w       |
+                    inst_st_b       |
+                    inst_st_h       | 
+                    inst_st_w       |
+                    inst_ld_bu      |
+                    inst_ld_hu      | 
+                    inst_ll_w       |
+                    inst_sc_w       |
+                    inst_jirl       | 
+                    inst_bl         |
+                    inst_pcaddi     |
+                    inst_pcaddu12i  |
+                    inst_valid_cacop|
+                    inst_preld      ;
 
 assign alu_op[ 1] = inst_sub_w;
 assign alu_op[ 2] = inst_slt   | inst_slti;
@@ -524,19 +529,19 @@ assign mul_div_op[ 3] = inst_mod_w  | inst_mod_wu;
 assign mul_div_sign  =  inst_mul_w | inst_mulh_w | inst_div_w | inst_mod_w;
 
 assign need_ui5      =  inst_slli_w | inst_srli_w | inst_srai_w;
-assign need_si12     =  inst_addi_w |
-                        inst_ld_b   |
-                        inst_ld_h   |
-                        inst_ld_w   |
-                        inst_st_b   |
-                        inst_st_h   | 
-                        inst_st_w   |
-                        inst_ld_bu  |
-                        inst_ld_hu  | 
-                        inst_slti   | 
-                        inst_sltui  |
-                        inst_cacop  |
-                        inst_preld  ;
+assign need_si12     =  inst_addi_w     |
+                        inst_ld_b       |
+                        inst_ld_h       |
+                        inst_ld_w       |
+                        inst_st_b       |
+                        inst_st_h       | 
+                        inst_st_w       |
+                        inst_ld_bu      |
+                        inst_ld_hu      | 
+                        inst_slti       | 
+                        inst_sltui      |
+                        inst_valid_cacop|
+                        inst_preld      ;
 
 assign need_ui12     =  inst_andi | inst_ori | inst_xori;
 assign need_si14_pc  =  inst_ll_w | inst_sc_w;
@@ -576,30 +581,30 @@ assign src_reg_is_rd = inst_beq    |
 
 assign src1_is_pc    = inst_jirl | inst_bl | inst_pcaddi | inst_pcaddu12i;
 
-assign src2_is_imm   = inst_slli_w    |
-                       inst_srli_w    |
-                       inst_srai_w    |
-                       inst_addi_w    |
-                       inst_slti      |
-                       inst_sltui     |
-                       inst_andi      |
-                       inst_ori       |
-                       inst_xori      |
-                       inst_pcaddi    |
-                       inst_pcaddu12i |
-                       inst_ld_b      |
-                       inst_ld_h      |
-                       inst_ld_w      |
-                       inst_ld_bu     |
-                       inst_ld_hu     |
-                       inst_st_b      |
-                       inst_st_h      |
-                       inst_st_w      |
-                       inst_ll_w      |
-                       inst_sc_w      |
-                       inst_lu12i_w   |
-                       inst_cacop     |
-                       inst_preld     ;
+assign src2_is_imm   = inst_slli_w     |
+                       inst_srli_w     |
+                       inst_srai_w     |
+                       inst_addi_w     |
+                       inst_slti       |
+                       inst_sltui      |
+                       inst_andi       |
+                       inst_ori        |
+                       inst_xori       |
+                       inst_pcaddi     |
+                       inst_pcaddu12i  |
+                       inst_ld_b       |
+                       inst_ld_h       |
+                       inst_ld_w       |
+                       inst_ld_bu      |
+                       inst_ld_hu      |
+                       inst_st_b       |
+                       inst_st_h       |
+                       inst_st_w       |
+                       inst_ll_w       |
+                       inst_sc_w       |
+                       inst_lu12i_w    |
+                       inst_valid_cacop|
+                       inst_preld      ;
 
 assign src2_is_4     = inst_jirl | inst_bl;
 
@@ -608,26 +613,27 @@ assign mem_b_size    = inst_ld_b | inst_ld_bu | inst_st_b;
 assign mem_h_size    = inst_ld_h | inst_ld_hu | inst_st_h;
 assign mem_sign_exted= inst_ld_b | inst_ld_h;
 assign dst_is_r1     = inst_bl;
-assign gr_we         = ~inst_st_b    & 
-                       ~inst_st_h    & 
-                       ~inst_st_w    & 
-                       ~inst_beq     & 
-                       ~inst_bne     & 
-                       ~inst_blt     & 
-                       ~inst_bge     &
-                       ~inst_bltu    &
-                       ~inst_bgeu    &
-                       ~inst_b       &
-                       ~inst_syscall &
-                       ~inst_tlbsrch &
-                       ~inst_tlbrd   &
-                       ~inst_tlbwr   &
-                       ~inst_tlbfill &
-                       ~inst_invtlb  &
-                       ~inst_cacop   &
-                       ~inst_preld   &      
-                       ~inst_dbar    &      
-                       ~inst_ibar    ;
+assign gr_we         = ~inst_st_b       & 
+                       ~inst_st_h       & 
+                       ~inst_st_w       & 
+                       ~inst_beq        & 
+                       ~inst_bne        & 
+                       ~inst_blt        & 
+                       ~inst_bge        &
+                       ~inst_bltu       &
+                       ~inst_bgeu       &
+                       ~inst_b          &
+                       ~inst_syscall    &
+                       ~inst_tlbsrch    &
+                       ~inst_tlbrd      &
+                       ~inst_tlbwr      &
+                       ~inst_tlbfill    &
+                       ~inst_invtlb     &
+                       ~inst_valid_cacop&
+                       ~inst_preld      &      
+                       ~inst_dbar       &      
+                       ~inst_ibar       &
+					   ~inst_nop        ;
 
 assign store_op      = inst_st_b | inst_st_h | inst_st_w | (inst_sc_w & ds_llbit);
 
@@ -649,54 +655,54 @@ assign csr_mask      = inst_csrxchg;
 
 assign mem_size  = {mem_h_size, mem_b_size};
 
-assign inst_need_rj = inst_add_w   |
-                      inst_sub_w   |
-                      inst_addi_w  |
-                      inst_slt     |
-                      inst_sltu    |
-                      inst_slti    |
-                      inst_sltui   |
-                      inst_and     |
-                      inst_or      |
-                      inst_nor     |
-                      inst_xor     |
-                      inst_andi    |
-                      inst_ori     |
-                      inst_xori    |
-                      inst_mul_w   |
-                      inst_mulh_w  |
-                      inst_mulh_wu |
-                      inst_div_w   |
-                      inst_div_wu  |
-                      inst_mod_w   |
-                      inst_mod_wu  |
-                      inst_sll_w   |
-                      inst_srl_w   |
-                      inst_sra_w   |
-                      inst_slli_w  |
-                      inst_srli_w  |
-                      inst_srai_w  |
-                      inst_beq     |
-                      inst_bne     |
-                      inst_blt     |
-                      inst_bltu    |
-                      inst_bge     |
-                      inst_bgeu    |
-                      inst_jirl    |
-                      inst_ld_b    |
-                      inst_ld_bu   |
-                      inst_ld_h    |
-                      inst_ld_hu   |
-                      inst_ld_w    |
-                      inst_st_b    |
-                      inst_st_h    |
-                      inst_st_w    |
-                      inst_preld   |
-                      inst_ll_w    |
-                      inst_sc_w    |
-                      inst_csrxchg |
-                      inst_cacop   |
-                      inst_invtlb  ;
+assign inst_need_rj = inst_add_w      |
+                      inst_sub_w      |
+                      inst_addi_w     |
+                      inst_slt        |
+                      inst_sltu       |
+                      inst_slti       |
+                      inst_sltui      |
+                      inst_and        |
+                      inst_or         |
+                      inst_nor        |
+                      inst_xor        |
+                      inst_andi       |
+                      inst_ori        |
+                      inst_xori       |
+                      inst_mul_w      |
+                      inst_mulh_w     |
+                      inst_mulh_wu    |
+                      inst_div_w      |
+                      inst_div_wu     |
+                      inst_mod_w      |
+                      inst_mod_wu     |
+                      inst_sll_w      |
+                      inst_srl_w      |
+                      inst_sra_w      |
+                      inst_slli_w     |
+                      inst_srli_w     |
+                      inst_srai_w     |
+                      inst_beq        |
+                      inst_bne        |
+                      inst_blt        |
+                      inst_bltu       |
+                      inst_bge        |
+                      inst_bgeu       |
+                      inst_jirl       |
+                      inst_ld_b       |
+                      inst_ld_bu      |
+                      inst_ld_h       |
+                      inst_ld_hu      |
+                      inst_ld_w       |
+                      inst_st_b       |
+                      inst_st_h       |
+                      inst_st_w       |
+                      inst_preld      |
+                      inst_ll_w       |
+                      inst_sc_w       |
+                      inst_csrxchg    |
+                      inst_valid_cacop|
+                      inst_invtlb     ;
                       
 assign inst_need_rkd = inst_add_w   |
                        inst_sub_w   |
@@ -821,72 +827,73 @@ assign refetch = (inst_tlbwr || inst_tlbfill || inst_tlbrd || inst_invtlb || ins
 
 assign tlb_inst_stall = es_tlb_inst_stall || ms_tlb_inst_stall || ws_tlb_inst_stall;
 
-assign inst_valid = inst_add_w     |
-                    inst_sub_w     |
-                    inst_slt       |
-                    inst_sltu      |
-                    inst_nor       |
-                    inst_and       |
-                    inst_or        |
-                    inst_xor       |
-                    inst_sll_w     |
-                    inst_srl_w     |
-                    inst_sra_w     |
-                    inst_mul_w     |
-                    inst_mulh_w    |
-                    inst_mulh_wu   |
-                    inst_div_w     |
-                    inst_mod_w     |
-                    inst_div_wu    |
-                    inst_mod_wu    |
-                    inst_break     |
-                    inst_syscall   |
-                    inst_slli_w    |
-                    inst_srli_w    |
-                    inst_srai_w    |
-                    inst_idle      |
-                    inst_slti      |
-                    inst_sltui     |
-                    inst_addi_w    |
-                    inst_andi      |
-                    inst_ori       |
-                    inst_xori      |
-                    inst_ld_b      |
-                    inst_ld_h      |
-                    inst_ld_w      |
-                    inst_st_b      |
-                    inst_st_h      |
-                    inst_st_w      |
-                    inst_ld_bu     |
-                    inst_ld_hu     |
-                    inst_ll_w      |
-                    inst_sc_w      |
-                    inst_jirl      |
-                    inst_b         |
-                    inst_bl        |
-                    inst_beq       |
-                    inst_bne       |
-                    inst_blt       |
-                    inst_bge       |
-                    inst_bltu      |
-                    inst_bgeu      |
-                    inst_lu12i_w   |
-                    inst_pcaddu12i |
-                    inst_csrrd     |
-                    inst_csrwr     |
-                    inst_csrxchg   |
-                    inst_rdcntid_w |
-                    inst_rdcntvh_w |
-                    inst_rdcntvl_w |
-                    inst_ertn      |
-                    inst_cacop     |
-                    inst_preld     |
-                    inst_dbar      |
-                    inst_ibar      |
-                    inst_tlbsrch   |
-                    inst_tlbrd     |
-                    inst_tlbwr     |
-                    inst_tlbfill   |
+assign inst_valid = inst_add_w      |
+                    inst_sub_w      |
+                    inst_slt        |
+                    inst_sltu       |
+                    inst_nor        |
+                    inst_and        |
+                    inst_or         |
+                    inst_xor        |
+                    inst_sll_w      |
+                    inst_srl_w      |
+                    inst_sra_w      |
+                    inst_mul_w      |
+                    inst_mulh_w     |
+                    inst_mulh_wu    |
+                    inst_div_w      |
+                    inst_mod_w      |
+                    inst_div_wu     |
+                    inst_mod_wu     |
+                    inst_break      |
+                    inst_syscall    |
+                    inst_slli_w     |
+                    inst_srli_w     |
+                    inst_srai_w     |
+                    inst_idle       |
+                    inst_slti       |
+                    inst_sltui      |
+                    inst_addi_w     |
+                    inst_andi       |
+                    inst_ori        |
+                    inst_xori       |
+                    inst_ld_b       |
+                    inst_ld_h       |
+                    inst_ld_w       |
+                    inst_st_b       |
+                    inst_st_h       |
+                    inst_st_w       |
+                    inst_ld_bu      |
+                    inst_ld_hu      |
+                    inst_ll_w       |
+                    inst_sc_w       |
+                    inst_jirl       |
+                    inst_b          |
+                    inst_bl         |
+                    inst_beq        |
+                    inst_bne        |
+                    inst_blt        |
+                    inst_bge        |
+                    inst_bltu       |
+                    inst_bgeu       |
+                    inst_lu12i_w    |
+                    inst_pcaddu12i  |
+                    inst_csrrd      |
+                    inst_csrwr      |
+                    inst_csrxchg    |
+                    inst_rdcntid_w  |
+                    inst_rdcntvh_w  |
+                    inst_rdcntvl_w  |
+                    inst_ertn       |
+                    inst_valid_cacop|
+                    inst_preld      |
+                    inst_dbar       |
+                    inst_ibar       |
+                    inst_tlbsrch    |
+                    inst_tlbrd      |
+                    inst_tlbwr      |
+                    inst_tlbfill    |
+					inst_nop        |
                     (inst_invtlb && (rd == 5'd0 || 
                                      rd == 5'd1 || 
                                      rd == 5'd2 || 
@@ -897,17 +904,17 @@ assign inst_valid = inst_add_w     |
 
 assign excp_ine = ~inst_valid;
 
-assign kernel_inst = inst_csrrd    |
-                     inst_csrwr    |
-                     inst_csrxchg  |
-                     inst_cacop & (rd[4:3] != 2'b10)   |
-                     inst_tlbsrch  |
-                     inst_tlbrd    |
-                     inst_tlbwr    |
-                     inst_tlbfill  |
-                     inst_invtlb   |
-                     inst_ertn     |
-                     inst_idle     ;
+assign kernel_inst = inst_csrrd      |
+                     inst_csrwr      |
+                     inst_csrxchg    |
+                     inst_valid_cacop & (rd[4:3] != 2'b10)|
+                     inst_tlbsrch    |
+                     inst_tlbrd      |
+                     inst_tlbwr      |
+                     inst_tlbfill    |
+                     inst_invtlb     |
+                     inst_ertn       |
+                     inst_idle       ;
 
 assign excp_ipe = kernel_inst && (csr_plv == 2'b11);
 

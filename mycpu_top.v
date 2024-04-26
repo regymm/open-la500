@@ -87,8 +87,11 @@ wire [31:0]  wr_csr_data;
 wire [31:0]  ws_bad_va;
 wire         ws_va_error;
 wire         ds_llbit;
+wire [27:0]  lladdr_out;
 wire         ws_llbit;
 wire         ws_llbit_set;
+wire         ws_lladdr_set;
+wire [27:0]  ws_lladdr;
 wire         has_int;
 wire         csr_wr_en;
 wire         excp_flush; 
@@ -247,6 +250,7 @@ wire         data_uncache_en;
 wire         data_dmw0_en;
 wire         data_dmw1_en;
 wire         data_tlb_excp_cancel_req;
+wire         sc_cancel_req;
 wire         dcache_empty;
 
 wire         es_to_ds_valid;
@@ -518,6 +522,7 @@ mem_stage mem_stage(
     //to cache
     .data_uncache_en      (data_uncache_en     ),
     .tlb_excp_cancel_req  (data_tlb_excp_cancel_req),
+    .sc_cancel_req        (sc_cancel_req       ),
     //from csr
     .csr_pg               (csr_pg              ),
     .csr_da               (csr_da              ),
@@ -526,6 +531,7 @@ mem_stage mem_stage(
     .csr_plv              (csr_plv             ),
     .csr_datm             (csr_datm            ),
     .disable_cache        (disable_cache       ),
+    .lladdr               (lladdr_out          ),
     //from addr trans for difftest
     .data_index_diff      (data_index          ),
     .data_tag_diff        (data_tag            ),
@@ -541,7 +547,8 @@ mem_stage mem_stage(
     .data_tlb_v           (data_tlb_v          ),
     .data_tlb_d           (data_tlb_d          ),
     .data_tlb_mat         (data_tlb_mat        ),
-    .data_tlb_plv         (data_tlb_plv        )
+    .data_tlb_plv         (data_tlb_plv        ),
+    .data_tlb_ppn         (data_tag            )
 );
 // WB stage
 wb_stage wb_stage(
@@ -577,6 +584,8 @@ wb_stage wb_stage(
     //llbit
     .ws_llbit_set      (ws_llbit_set     ),
     .ws_llbit          (ws_llbit         ),
+    .ws_lladdr_set     (ws_lladdr_set    ),
+    .ws_lladdr         (ws_lladdr        ),
     //tlb ins
     .tlb_inst_stall    (ws_tlb_inst_stall),
     .tlbsrch_en        (tlbsrch_en       ),
@@ -655,9 +664,13 @@ csr #(TLBNUM) u_csr(
     //from ws llbit
     .llbit_in       (ws_llbit       ),
     .llbit_set_in   (ws_llbit_set   ),
+    .lladdr_in      (ws_lladdr      ),
+    .lladdr_set_in  (ws_lladdr_set  ),
     //to es
     .llbit_out      (ds_llbit       ),
     .vppn_out       (csr_vppn       ),
+    //to ms
+    .lladdr_out     (lladdr_out     ),
     //to fs
     .eentry_out     (fs_csr_eentry  ),
     .era_out        (fs_csr_era     ),
@@ -912,6 +925,7 @@ dcache dcache(
     .preld_hint     (preld_hint     ),
     .preld_en       (preld_en       ),
     .tlb_excp_cancel_req (data_tlb_excp_cancel_req),
+    .sc_cancel_req  (sc_cancel_req  ),
 	.dcache_empty   (dcache_empty   ),
 //to from axi 
     .rd_req         (data_rd_req    ), 

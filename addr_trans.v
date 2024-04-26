@@ -118,8 +118,13 @@ wire        pg_mode;
 wire        da_mode;
 
 always @(posedge clk) begin
-    inst_vaddr_buffer <= inst_vaddr;
-    data_vaddr_buffer <= data_vaddr;
+    if (inst_fetch) begin
+        inst_vaddr_buffer <= inst_vaddr;
+    end
+
+    if (data_fetch) begin
+        data_vaddr_buffer <= data_vaddr;
+    end
 end
 
 //trans search port sig

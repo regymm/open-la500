@@ -20,6 +20,7 @@ module dcache
     input  [ 4:0]       preld_hint   ,
     input               preld_en     ,
     input               tlb_excp_cancel_req,
+    input               sc_cancel_req,
 	output              dcache_empty ,
     //to from axi
     output              rd_req       ,
@@ -144,7 +145,7 @@ wire [127:0] way1_data       ;
 wire [127:0] replace_data    ;
 wire         replace_d       ;
 wire         replace_v       ;
-wire [20:0]  replace_tag     ;
+wire [19:0]  replace_tag     ;
 wire         chosen_way      ;
 wire         replace_way     ;
 
@@ -208,6 +209,8 @@ reg       rd_req_buffer;
 
 wire      invalid_way;
 
+wire cancel_req = tlb_excp_cancel_req || sc_cancel_req;
+
 //state machine
 //main loop
 always @(posedge clk) begin
@@ -263,7 +266,7 @@ always @(posedge clk) begin
                 request_buffer_cacop_op_mode <= cacop_op_mode ;
                 request_buffer_dcacop        <= dcacop_op_en  ;
             end
-            else if (tlb_excp_cancel_req) begin
+            else if (cancel_req) begin
                 main_state <= main_idle;
             end
             else if (!cache_hit) begin
@@ -327,7 +330,7 @@ always @(posedge clk) begin
     end
     else case (write_buffer_state)
         write_buffer_idle: begin
-            if (main_state_is_lookup && cache_hit && request_buffer_op && !tlb_excp_cancel_req) begin
+            if (main_state_is_lookup && cache_hit && request_buffer_op && !cancel_req) begin
                 write_buffer_state  <= write_buffer_write;
 
                 write_buffer_index  <= request_buffer_index;
@@ -338,7 +341,7 @@ always @(posedge clk) begin
             end
         end
         write_buffer_write: begin
-            if (main_state_is_lookup && cache_hit && request_buffer_op && !tlb_excp_cancel_req) begin
+            if (main_state_is_lookup && cache_hit && request_buffer_op && !cancel_req) begin
                 write_buffer_state  <= write_buffer_write;
 
                 write_buffer_index  <= request_buffer_index;
@@ -430,7 +433,7 @@ assign rd_addr = request_buffer_uncache_en ? {request_buffer_tag, request_buffer
 
 //write process will not block pipeline
 //preld ins will not block pipeline      ps:preld is not real mem inst, this operation is controled in pipeline
-assign data_ok = ((main_state_is_lookup && (cache_hit || request_buffer_op || tlb_excp_cancel_req)) || 
+assign data_ok = ((main_state_is_lookup && (cache_hit || request_buffer_op || cancel_req)) || 
                   (main_state_is_refill && (!request_buffer_op && (ret_valid && ((miss_buffer_ret_num == request_buffer_offset[3:2]) || request_buffer_uncache_en))))) && 
                   !(request_buffer_preld || request_buffer_dcacop);  //when rd_req is not set, set data_ok directly.
 //rdate connect with ret_data dirctly. maintain one clock only
