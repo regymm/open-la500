@@ -49,90 +49,38 @@ reg         request_buffer_uncache_en ;
 reg         request_buffer_icacop     ;
 reg [ 1:0]  request_buffer_cacop_op_mode;
 
-reg          miss_buffer_replace_way ;
+reg  [ 1:0]  miss_buffer_replace_way ;
 reg  [ 1:0]  miss_buffer_ret_num     ;
 wire [ 1:0]  ret_num_add_one         ;
  
-wire [ 7:0] way0_bank0_addra    ;
-wire [31:0] way0_bank0_dina     ;
-wire [31:0] way0_bank0_douta    ;
-wire        way0_bank0_ena      ;
-wire [ 3:0] way0_bank0_wea      ;
-wire [ 7:0] way0_bank1_addra    ;
-wire [31:0] way0_bank1_dina     ;
-wire [31:0] way0_bank1_douta    ;
-wire        way0_bank1_ena      ;
-wire [ 3:0] way0_bank1_wea      ;
-wire [ 7:0] way0_bank2_addra    ;
-wire [31:0] way0_bank2_dina     ;
-wire [31:0] way0_bank2_douta    ;
-wire        way0_bank2_ena      ;
-wire [ 3:0] way0_bank2_wea      ;
-wire [ 7:0] way0_bank3_addra    ;
-wire [31:0] way0_bank3_dina     ;
-wire [31:0] way0_bank3_douta    ;
-wire        way0_bank3_ena      ;
-wire [ 3:0] way0_bank3_wea      ;
-wire [ 7:0] way1_bank0_addra    ;
-wire [31:0] way1_bank0_dina     ;
-wire [31:0] way1_bank0_douta    ;
-wire        way1_bank0_ena      ;
-wire [ 3:0] way1_bank0_wea      ;
-wire [ 7:0] way1_bank1_addra    ;
-wire [31:0] way1_bank1_dina     ;
-wire [31:0] way1_bank1_douta    ;
-wire        way1_bank1_ena      ;
-wire [ 3:0] way1_bank1_wea      ;
-wire [ 7:0] way1_bank2_addra    ;
-wire [31:0] way1_bank2_dina     ;
-wire [31:0] way1_bank2_douta    ;
-wire        way1_bank2_ena      ;
-wire [ 3:0] way1_bank2_wea      ;
-wire [ 7:0] way1_bank3_addra    ;
-wire [31:0] way1_bank3_dina     ;
-wire [31:0] way1_bank3_douta    ;
-wire        way1_bank3_ena      ;
-wire [ 3:0] way1_bank3_wea      ;
+wire [ 7:0] way_bank_addra [1:0][3:0];
+wire [31:0] way_bank_dina  [1:0][3:0];
+wire [31:0] way_bank_douta [1:0][3:0];
+wire        way_bank_ena   [1:0][3:0];
+wire [ 3:0] way_bank_wea   [1:0][3:0];
 
-wire [ 7:0] way0_tagv_addra     ;
-wire [20:0] way0_tagv_dina      ;
-wire [20:0] way0_tagv_douta     ;
-wire        way0_tagv_ena       ;
-wire        way0_tagv_wea       ;
-wire [ 7:0] way1_tagv_addra     ;
-wire [20:0] way1_tagv_dina      ;
-wire [20:0] way1_tagv_douta     ;
-wire        way1_tagv_ena       ;
-wire        way1_tagv_wea       ;
+wire [ 7:0] way_tagv_addra [1:0];
+wire [20:0] way_tagv_dina  [1:0];
+wire [20:0] way_tagv_douta [1:0];
+wire        way_tagv_ena   [1:0];
+wire        way_tagv_wea   [1:0];
 
-wire        way0_hit    ;
-wire        way1_hit    ;
+wire [ 1:0] way_hit     ;
 wire        cache_hit   ;
 
-wire [31:0]  way0_load_word  ;
-wire [31:0]  way1_load_word  ;
+wire [ 31:0] way_load_word [1:0];
+wire [127:0] way_data      [1:0];
 wire [31:0]  load_res        ;
-wire [127:0] way0_data       ;
-wire [127:0] way1_data       ;
 
 wire         main_idle2lookup  ;
 wire         main_lookup2lookup;
-
-wire [ 7:0]  bank_addra;
-wire [ 7:0]  tagv_addra;
-wire [31:0]  bank_dina ;
-wire [20:0]  tagv_dina ;
-wire         bank_ena  ;
-wire         tagv_ena  ;
-wire         tagv_wea_en    ;
 
 wire         main_state_is_idle   ;
 wire         main_state_is_lookup ;
 wire         main_state_is_replace;
 wire         main_state_is_refill ;
 
-wire         way0_wr_en;
-wire         way1_wr_en;
+wire [1:0]   way_wr_en;
 
 wire [31:0]  refill_data;
 
@@ -140,13 +88,17 @@ wire         cacop_op_mode0;
 wire         cacop_op_mode1;
 wire         cacop_op_mode2;
 
-wire         chosen_way;
-wire         replace_way;
+wire [1:0]   random_val;
+wire [3:0]   chosen_way;
+wire [1:0]   replace_way;
+wire [1:0]   invalid_way;
+wire         has_invalid_way;
+wire [1:0]   rand_repl_way;
+wire [3:0]   cacop_chose_way;
 wire         cacop_op_mode2_hit_wr;
 wire         cacop_op_mode2_no_hit;
 
-reg          lookup_way0_hit_buffer;
-reg          lookup_way1_hit_buffer;
+reg  [ 1:0]  lookup_way_hit_buffer;
 
 wire [ 3:0]  real_offset;
 wire [19:0]  real_tag   ;
@@ -165,7 +117,7 @@ reg [4:0] main_state;
 
 reg       rd_req_buffer;
 
-wire      invalid_way;
+genvar i,j;
 
 //state machine
 //main loop
@@ -184,7 +136,7 @@ always @(posedge clk) begin
         request_buffer_cacop_op_mode <= 2'b0;
         request_buffer_icacop        <= 1'b0;
 
-        miss_buffer_replace_way <= 1'b0;
+        miss_buffer_replace_way <= 2'b0;
 
         wr_req <= 1'b0;
     end
@@ -270,9 +222,10 @@ assign icache_unbusy = main_state_is_idle;
 /*===================================main state lookup======================================*/
 
 //tag compare
-assign way0_hit  = way0_tagv_douta[0] && (real_tag == way0_tagv_douta[20:1]);   //this signal will not maintain
-assign way1_hit  = way1_tagv_douta[0] && (real_tag == way1_tagv_douta[20:1]);
-assign cache_hit = (way0_hit || way1_hit) && !(uncache_en || cacop_op_mode0 || cacop_op_mode1 || cacop_op_mode2);  //uncache road reuse
+generate for(i=0;i<2;i++) begin:gen_way_hit
+	assign way_hit[i] = way_tagv_douta[i][0] && (real_tag == way_tagv_douta[i][20:1]); //this signal will not maintain
+end endgenerate
+assign cache_hit = |way_hit && !(uncache_en || cacop_op_mode0 || cacop_op_mode1 || cacop_op_mode2);  //uncache road reuse
 //when cache inst op mode2 no hit, main state machine will still go a round. implement easy.
 
 assign main_lookup2lookup = cache_hit;
@@ -280,22 +233,30 @@ assign main_lookup2lookup = cache_hit;
 assign addr_ok = ((main_state_is_idle && main_idle2lookup) || (main_state_is_lookup && main_lookup2lookup)) && !icacop_op_en; //request can be get
 
 //data select
-assign way0_data = {way0_bank3_douta, way0_bank2_douta, way0_bank1_douta, way0_bank0_douta};
-assign way1_data = {way1_bank3_douta, way1_bank2_douta, way1_bank1_douta, way1_bank0_douta};
-assign way0_load_word = way0_data[request_buffer_offset[3:2]*32 +: 32];
-assign way1_load_word = way1_data[request_buffer_offset[3:2]*32 +: 32];
-assign load_res  = {32{way0_hit}} & way0_load_word |
-                   {32{way1_hit}} & way1_load_word ;
+generate for(i=0;i<2;i=i+1) begin: gen_data
+	assign way_data[i] = {way_bank_douta[i][3],way_bank_douta[i][2],way_bank_douta[i][1],way_bank_douta[i][0]};
+
+	assign way_load_word[i] = way_data[i][request_buffer_offset[3:2]*32 +: 32];
+end endgenerate
+
+assign load_res  = {32{way_hit[0]}} & way_load_word[0] |
+                   {32{way_hit[1]}} & way_load_word[1] ;
 
 //data_ok logic
 
 /*====================================main state miss=======================================*/
 
-assign invalid_way = (!way1_tagv_douta[0] || chosen_way) && way0_tagv_douta[0];  //chose invalid way first. 
+decoder_2_4 dec_rand_way (.in({1'b0,random_val[0]}),.out(chosen_way));
 
-assign replace_way = ((cacop_op_mode0 || cacop_op_mode1) && request_buffer_offset[0]) ||
-                     (cacop_op_mode2 && way1_hit)                                     ||
-                     (!request_buffer_icacop) && invalid_way;
+one_valid_n #(2) sel_one_invalid (.in(~{way_tagv_douta[1][0],way_tagv_douta[0][0]}),.out(invalid_way),.nozero(has_invalid_way));
+
+assign rand_repl_way = has_invalid_way ? invalid_way : chosen_way[1:0]; //chose invalid way first.
+
+decoder_2_4 dec_cacop_way (.in({1'b0,request_buffer_offset[0]}),.out(cacop_chose_way));
+
+assign replace_way = {2{cacop_op_mode0 || cacop_op_mode1}} & cacop_chose_way[1:0] |
+                     {2{cacop_op_mode2}}                   & way_hit              |
+                     {2{!request_buffer_icacop}}           & rand_repl_way;
 
 /*==================================main state replace======================================*/
 
@@ -314,8 +275,7 @@ assign data_ok = (main_state_is_lookup && (cache_hit || tlb_excp_cancel_req)) ||
 
 assign refill_data = ret_data;
 
-assign way0_wr_en = !miss_buffer_replace_way && ret_valid;  //when rd_req is not set, ret_valid and ret_last will not be set. block will not be wr also.
-assign way1_wr_en =  miss_buffer_replace_way && ret_valid;
+assign way_wr_en = miss_buffer_replace_way & {2{ret_valid}}; //when rd_req is not set, ret_valid and ret_last will not be set. block will not be wr also.
 
 assign cache_miss = main_state_is_refill && ret_last && !(request_buffer_uncache_en || request_buffer_icacop);
 
@@ -342,17 +302,15 @@ assign cacop_op_mode0 = request_buffer_icacop && (request_buffer_cacop_op_mode =
 assign cacop_op_mode1 = request_buffer_icacop && ((request_buffer_cacop_op_mode == 2'b01) || (request_buffer_cacop_op_mode == 2'b11));
 assign cacop_op_mode2 = request_buffer_icacop && (request_buffer_cacop_op_mode == 2'b10);
 
-assign cacop_op_mode2_hit_wr = cacop_op_mode2 && (lookup_way0_hit_buffer || lookup_way1_hit_buffer);
-assign cacop_op_mode2_no_hit = cacop_op_mode2 && !lookup_way0_hit_buffer && !lookup_way1_hit_buffer;
+assign cacop_op_mode2_hit_wr = cacop_op_mode2 && |lookup_way_hit_buffer;
+assign cacop_op_mode2_no_hit = cacop_op_mode2 && ~|lookup_way_hit_buffer;
 
 always @(posedge clk) begin
     if (reset) begin
-        lookup_way0_hit_buffer <= 1'b0;
-        lookup_way1_hit_buffer <= 1'b0;
+        lookup_way_hit_buffer <= 2'b0;
     end
     else if (cacop_op_mode2 && main_state_is_lookup) begin
-        lookup_way0_hit_buffer <= way0_hit;
-        lookup_way1_hit_buffer <= way1_hit;         //buffer way hit info
+        lookup_way_hit_buffer <= way_hit;
     end
 end
 
@@ -360,200 +318,88 @@ end
 assign rdata = {32{main_state_is_lookup}} & load_res |
                {32{main_state_is_refill}} & ret_data ;
 
+generate 
+for(i=0;i<2;i=i+1) begin:gen_data_way
+	for(j=0;j<4;j=j+1) begin:gen_data_bank
 /*===============================bank addra logic==============================*/
 
-assign bank_addra = {8{addr_ok}}                                  & real_index           |          /*lookup*/
-					{8{!addr_ok}} 								  & request_buffer_index ;
-                                 
-assign way0_bank0_addra = bank_addra; 
-assign way0_bank1_addra = bank_addra; 
-assign way0_bank2_addra = bank_addra; 
-assign way0_bank3_addra = bank_addra; 
-assign way1_bank0_addra = bank_addra; 
-assign way1_bank1_addra = bank_addra; 
-assign way1_bank2_addra = bank_addra; 
-assign way1_bank3_addra = bank_addra; 
+		assign way_bank_addra[i][j] = {8{addr_ok}}  & real_index           |  /*lookup*/
+	                                  {8{!addr_ok}} & request_buffer_index ;
 
 /*===============================bank we logic=================================*/
 
-assign way0_bank0_wea = {4{main_state_is_refill && 
-                        (way0_wr_en && (miss_buffer_ret_num == 2'b00))}} & 4'hf;
-
-assign way0_bank1_wea = {4{main_state_is_refill && 
-                        (way0_wr_en && (miss_buffer_ret_num == 2'b01))}} & 4'hf;                    
-
-assign way0_bank2_wea = {4{main_state_is_refill && 
-                        (way0_wr_en && (miss_buffer_ret_num == 2'b10))}} & 4'hf;                      
-
-assign way0_bank3_wea = {4{main_state_is_refill && 
-                        (way0_wr_en && (miss_buffer_ret_num == 2'b11))}} & 4'hf;                       
-
-assign way1_bank0_wea = {4{main_state_is_refill && 
-                        (way1_wr_en && (miss_buffer_ret_num == 2'b00))}} & 4'hf;
-
-assign way1_bank1_wea = {4{main_state_is_refill && 
-                        (way1_wr_en && (miss_buffer_ret_num == 2'b01))}} & 4'hf;
-
-assign way1_bank2_wea = {4{main_state_is_refill &&
-                        (way1_wr_en && (miss_buffer_ret_num == 2'b10))}} & 4'hf;                   
-
-assign way1_bank3_wea = {4{main_state_is_refill &&
-                        (way1_wr_en && (miss_buffer_ret_num == 2'b11))}} & 4'hf;
+		assign way_bank_wea[i][j] = {4{main_state_is_refill && 
+                                    (way_wr_en[i] && (miss_buffer_ret_num == j[1:0]))}} & 4'hf;
 
 /*===============================bank dina logic=================================*/
 
-assign bank_dina = {32{main_state_is_refill}} & refill_data;             
-
-assign way0_bank0_dina = bank_dina;
-assign way0_bank1_dina = bank_dina;
-assign way0_bank2_dina = bank_dina;
-assign way0_bank3_dina = bank_dina;
-assign way1_bank0_dina = bank_dina;
-assign way1_bank1_dina = bank_dina;
-assign way1_bank2_dina = bank_dina;
-assign way1_bank3_dina = bank_dina;
+		assign way_bank_dina[i][j] = {32{main_state_is_refill}} & refill_data;
 
 /*===============================bank ena logic=================================*/
 
-assign bank_ena = (!(request_buffer_uncache_en || cacop_op_mode0)) || main_state_is_idle || main_state_is_lookup;
+		assign way_bank_ena[i][j] = (!(request_buffer_uncache_en || cacop_op_mode0)) || main_state_is_idle || main_state_is_lookup;
+	end
+end
+endgenerate
 
-assign way0_bank0_ena = bank_ena; 
-assign way0_bank1_ena = bank_ena; 
-assign way0_bank2_ena = bank_ena; 
-assign way0_bank3_ena = bank_ena; 
-assign way1_bank0_ena = bank_ena; 
-assign way1_bank1_ena = bank_ena; 
-assign way1_bank2_ena = bank_ena; 
-assign way1_bank3_ena = bank_ena; 
-
+generate 
+for(i=0;i<2;i=i+1) begin:gen_tagv_way
 /*===============================tagv addra logic=================================*/
 
-assign tagv_addra = {8{addr_ok || (icacop_op_en && 
-                    (main_state_is_idle || main_state_is_lookup))}} & real_index              | 
-                    {8{main_state_is_replace || main_state_is_refill}} & request_buffer_index ;
-                    //{8{(main_state_is_miss && wr_rdy) ||
-
-assign way0_tagv_addra = tagv_addra;
-assign way1_tagv_addra = tagv_addra;
+	assign way_tagv_addra[i] = {8{addr_ok || (icacop_op_en && 
+                               (main_state_is_idle || main_state_is_lookup))}} & real_index              | 
+                               {8{main_state_is_replace || main_state_is_refill}} & request_buffer_index ;
+                               //{8{(main_state_is_miss && wr_rdy) ||
 
 /*===============================tagv ena logic=================================*/
 
-assign tagv_ena = (!request_buffer_uncache_en) || main_state_is_idle || main_state_is_lookup;
-
-assign way0_tagv_ena  = tagv_ena;
-assign way1_tagv_ena  = tagv_ena;
+	assign way_tagv_ena[i] = (!request_buffer_uncache_en) || main_state_is_idle || main_state_is_lookup;
 
 /*===============================tagv wea logic=================================*/
 
-assign tagv_wea_en = main_state_is_refill && ((ret_valid && ret_last) || cacop_op_mode0 || cacop_op_mode1 || cacop_op_mode2_hit_wr);
-
-assign way0_tagv_wea = !miss_buffer_replace_way && tagv_wea_en; //wirte at last 4B
-assign way1_tagv_wea =  miss_buffer_replace_way && tagv_wea_en;
+	assign way_tagv_wea[i] = miss_buffer_replace_way[i] && main_state_is_refill && 
+							 ((ret_valid && ret_last) || cacop_op_mode0 || cacop_op_mode1 || cacop_op_mode2_hit_wr);  //wirte at last 4B
 
 /*===============================tagv dina logic=================================*/
 
-assign tagv_dina = (cacop_op_mode0 || cacop_op_mode1 || cacop_op_mode2_hit_wr) ? 21'b0 : {request_buffer_tag, 1'b1};
-
-assign way0_tagv_dina = tagv_dina;
-assign way1_tagv_dina = tagv_dina;
-
+	assign way_tagv_dina[i] = (cacop_op_mode0 || cacop_op_mode1 || cacop_op_mode2_hit_wr) ? 21'b0 : {request_buffer_tag, 1'b1};
+end
+endgenerate
 /*==============================================================================*/
 
-data_bank_sram way0_bank0(
-    .addra      (way0_bank0_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way0_bank0_dina )  ,
-    .douta      (way0_bank0_douta)  ,
-    .ena        (way0_bank0_ena  )  ,
-    .wea        (way0_bank0_wea  )  
-);
+generate 
+for(i=0;i<2;i=i+1) begin:data_ram_way
+	for(j=0;j<4;j=j+1) begin:data_ram_bank
+		data_bank_sram u(
+    		.addra      (way_bank_addra[i][j])  ,
+    		.clka       (clk                 )  ,
+    		.dina       (way_bank_dina[i][j] )  ,
+    		.douta      (way_bank_douta[i][j])  ,
+    		.ena        (way_bank_ena[i][j]  )  ,
+    		.wea        (way_bank_wea[i][j]  )  
+		);
+	end
+end
+endgenerate
 
-data_bank_sram way0_bank1(
-    .addra      (way0_bank1_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way0_bank1_dina )  ,
-    .douta      (way0_bank1_douta)  ,
-    .ena        (way0_bank1_ena  )  ,
-    .wea        (way0_bank1_wea  )  
-);
-
-data_bank_sram way0_bank2(
-    .addra      (way0_bank2_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way0_bank2_dina )  ,
-    .douta      (way0_bank2_douta)  ,
-    .ena        (way0_bank2_ena  )  ,
-    .wea        (way0_bank2_wea  )  
-);
-
-data_bank_sram way0_bank3(
-    .addra      (way0_bank3_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way0_bank3_dina )  ,
-    .douta      (way0_bank3_douta)  ,
-    .ena        (way0_bank3_ena  )  ,
-    .wea        (way0_bank3_wea  )  
-);
-
-data_bank_sram way1_bank0(
-    .addra      (way1_bank0_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way1_bank0_dina )  ,
-    .douta      (way1_bank0_douta)  ,
-    .ena        (way1_bank0_ena  )  ,
-    .wea        (way1_bank0_wea  )  
-);
-
-data_bank_sram way1_bank1(
-    .addra      (way1_bank1_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way1_bank1_dina )  ,
-    .douta      (way1_bank1_douta)  ,
-    .ena        (way1_bank1_ena  )  ,
-    .wea        (way1_bank1_wea  )  
-);
-
-data_bank_sram way1_bank2(
-    .addra      (way1_bank2_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way1_bank2_dina )  ,
-    .douta      (way1_bank2_douta)  ,
-    .ena        (way1_bank2_ena  )  ,
-    .wea        (way1_bank2_wea  )  
-);
-
-data_bank_sram way1_bank3(
-    .addra      (way1_bank3_addra)  ,
-    .clka       (clk             )  ,
-    .dina       (way1_bank3_dina )  ,
-    .douta      (way1_bank3_douta)  ,
-    .ena        (way1_bank3_ena  )  ,
-    .wea        (way1_bank3_wea  )  
-);
-
-//[20:1] tag     [0:0] v
-tagv_sram way0_tagv( 
-    .addra      (way0_tagv_addra)  ,
-    .clka       (clk            )  ,
-    .dina       (way0_tagv_dina )  ,
-    .douta      (way0_tagv_douta)  ,
-    .ena        (way0_tagv_ena  )  ,
-    .wea        (way0_tagv_wea  )
-);
-
-tagv_sram way1_tagv( 
-    .addra      (way1_tagv_addra)  ,
-    .clka       (clk            )  ,
-    .dina       (way1_tagv_dina )  ,
-    .douta      (way1_tagv_douta)  ,
-    .ena        (way1_tagv_ena  )  ,
-    .wea        (way1_tagv_wea  )
-);
+generate
+for(i=0;i<2;i=i+1) begin:tagv_ram_way
+	//[20:1] tag     [0:0] v
+	tagv_sram u( 
+	    .addra      (way_tagv_addra[i])  ,
+	    .clka       (clk              )  ,
+	    .dina       (way_tagv_dina[i] )  ,
+	    .douta      (way_tagv_douta[i])  ,
+	    .ena        (way_tagv_ena[i]  )  ,
+	    .wea        (way_tagv_wea[i]  )
+	);
+end
+endgenerate
 
 lfsr lfsr(
     .clk        (clk        )   ,
     .reset      (reset      )   ,
-    .random_val (chosen_way )
+    .random_val (random_val )
 );
 
 assign main_state_is_idle    = main_state == main_idle   ;
