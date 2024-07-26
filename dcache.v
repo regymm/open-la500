@@ -151,7 +151,7 @@ reg       write_buffer_state;
 
 reg       rd_req_buffer;
 
-wire      invalid_way;
+// wire      invalid_way;
 
 wire cancel_req = tlb_excp_cancel_req || sc_cancel_req;
 
