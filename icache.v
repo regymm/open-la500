@@ -222,7 +222,7 @@ assign icache_unbusy = main_state_is_idle;
 /*===================================main state lookup======================================*/
 
 //tag compare
-generate for(i=0;i<2;i++) begin:gen_way_hit
+generate for(i=0;i<2;i=i+1) begin:gen_way_hit
 	assign way_hit[i] = way_tagv_douta[i][0] && (real_tag == way_tagv_douta[i][20:1]); //this signal will not maintain
 end endgenerate
 assign cache_hit = |way_hit && !(uncache_en || cacop_op_mode0 || cacop_op_mode1 || cacop_op_mode2);  //uncache road reuse
