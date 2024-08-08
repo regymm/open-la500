@@ -186,7 +186,7 @@ generate
 endgenerate
 
 assign btb_match = |btb_match_rd;
-assign ras_match = |ras_match_rd;
+assign ras_match = |ras_match_rd && !ras_empty;
 
 assign ras_top = ras[ras_ptr - 4'b1]; //ras modify may before inst fetch
 
